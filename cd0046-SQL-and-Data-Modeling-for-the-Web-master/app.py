@@ -3,15 +3,19 @@
 #----------------------------------------------------------------------------#
 
 import json
+import os
+import sys
+# from tkinter import Y
 import dateutil.parser
 import babel
-from flask import Flask, render_template, request, Response, flash, redirect, url_for
+from flask import Flask, render_template, request, Response, flash, redirect, url_for, jsonify
 from flask_moment import Moment
 from flask_sqlalchemy import SQLAlchemy
 import logging
 from logging import Formatter, FileHandler
 from flask_wtf import Form
 from forms import *
+from flask_migrate import Migrate
 #----------------------------------------------------------------------------#
 # App Config.
 #----------------------------------------------------------------------------#
@@ -19,8 +23,11 @@ from forms import *
 app = Flask(__name__)
 moment = Moment(app)
 app.config.from_object('config')
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:ghislain@localhost:5432/fyyur'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
+
 
 # TODO: connect to a local postgresql database
 
@@ -37,8 +44,13 @@ class Venue(db.Model):
     state = db.Column(db.String(120))
     address = db.Column(db.String(120))
     phone = db.Column(db.String(120))
-    image_link = db.Column(db.String(500))
+    genres = db.Column(db.String(120))
     facebook_link = db.Column(db.String(120))
+    image_link = db.Column(db.String(120))
+    website_link = db.Column(db.String(120))
+    # seeking_talent = db.Column(db.Boolean)
+    seeking_description = db.Column(db.String(500))
+
 
     # TODO: implement any missing fields, as a database migration using Flask-Migrate
 
@@ -50,9 +62,13 @@ class Artist(db.Model):
     city = db.Column(db.String(120))
     state = db.Column(db.String(120))
     phone = db.Column(db.String(120))
-    genres = db.Column(db.String(120))
     image_link = db.Column(db.String(500))
+    genres = db.Column(db.String(120))
     facebook_link = db.Column(db.String(120))
+    website_link = db.Column(db.String(120))
+    # seeking_talent = db.Column(db.Boolean)
+    seeking_description = db.Column(db.String(500))
+
 
     # TODO: implement any missing fields, as a database migration using Flask-Migrate
 
@@ -222,9 +238,49 @@ def create_venue_form():
 def create_venue_submission():
   # TODO: insert form data as a new Venue record in the db, instead
   # TODO: modify data to be the data object returned from db insertion
-
-  # on successful db insert, flash success
-  flash('Venue ' + request.form['name'] + ' was successfully listed!')
+  error = False
+  # body = {}
+  try:
+      name = request.form['name']
+      city = request.form['city']
+      state = request.form['state']
+      address = request.form['address']
+      phone = request.form['phone']
+      image_link = request.form['image_link']
+      genres = request.form['genres']
+      facebook_link = request.form['facebook_link']
+      website_link = request.form['website_link']
+      # seeking_talent = 'y'
+      seeking_description = request.form['seeking_description']
+    
+      venue = Venue(
+        name = name,
+        city = city,
+        state = state,
+        address = address,
+        phone = phone,
+        image_link = image_link,
+        genres = genres,
+        facebook_link = facebook_link,
+        website_link = website_link,
+        # seeking_talent = seeking_talent,
+        seeking_description = seeking_description
+      )
+      db.session.add(venue)
+      db.session.commit()
+      # body['description'] = todo.description
+  except:
+    error = True
+    db.session.rollback()
+    print(sys.exc_info())
+  finally:
+    db.session.close()
+  if error:
+    os.abort ()
+  else:
+  #   return jsonify(body)
+  # # on successful db insert, flash success
+    flash('Venue ' + request.form['name'] + ' was successfully listed!')
   # TODO: on unsuccessful db insert, flash an error instead.
   # e.g., flash('An error occurred. Venue ' + data.name + ' could not be listed.')
   # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
@@ -416,9 +472,47 @@ def create_artist_submission():
   # called upon submitting the new artist listing form
   # TODO: insert form data as a new Venue record in the db, instead
   # TODO: modify data to be the data object returned from db insertion
-
+  error = False
+  # body = {}
+  try:
+      name = request.form['name']
+      city = request.form['city']
+      state = request.form['state']
+      phone = request.form['phone']
+      image_link = request.form['image_link']
+      genres = request.form['genres']
+      facebook_link = request.form['facebook_link']
+      website_link = request.form['website_link']
+      seeking_description = request.form['seeking_description']
+      # seeking_talent = 'y'
+    
+      artist = Artist(
+        name = name,
+        city = city,
+        state = state,
+        phone = phone,
+        image_link = image_link,
+        genres = genres,
+        facebook_link = facebook_link,
+        website_link = website_link,
+        # seeking_talent = seeking_talent,
+        seeking_description = seeking_description
+      )
+      db.session.add(artist)
+      db.session.commit()
+      # body['description'] = todo.description
+  except:
+    error = True
+    db.session.rollback()
+    print(sys.exc_info())
+  finally:
+    db.session.close()
+  if error:
+    os.abort ()
+  else:
+  #   return jsonify(body)
   # on successful db insert, flash success
-  flash('Artist ' + request.form['name'] + ' was successfully listed!')
+    flash('Artist ' + request.form['name'] + ' was successfully listed!')
   # TODO: on unsuccessful db insert, flash an error instead.
   # e.g., flash('An error occurred. Artist ' + data.name + ' could not be listed.')
   return render_template('pages/home.html')
@@ -515,8 +609,7 @@ if __name__ == '__main__':
     app.run()
 
 # Or specify port manually:
-'''
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
-'''
+    app.config['FLASK_DEBUG'] = True
