@@ -9,6 +9,7 @@ import dateutil.parser
 import babel
 from flask import Flask, render_template, request, Response, flash, redirect, url_for, jsonify
 from flask_moment import Moment
+from sqlalchemy import func
 from flask_sqlalchemy import SQLAlchemy
 import logging
 from logging import Formatter, FileHandler
@@ -157,7 +158,14 @@ def search_venues():
             "num_upcoming_shows": 0,
         }]
     }
-    return render_template('pages/search_venues.html', results=response, search_term=request.form.get('search_term', ''))
+
+    search_term = request.form.get('search_term', '')
+    search = "%{}%".format(search_term)
+    res = {
+        "count": db.session.query(func.count(Venue.id).filter(Venue.name.ilike(search))).scalar(),
+        "data": db.session.query(Venue.name.label('name'), Venue.id.label('id')).filter(Venue.name.ilike(search)).all()
+    }
+    return render_template('pages/search_venues.html', results=res, search_term=request.form.get('search_term', ''))
 
 
 @app.route('/venues/<int:id>')
@@ -310,15 +318,30 @@ def create_venue_submission():
     return render_template('pages/home.html')
 
 
-@app.route('/venues/<id>', methods=['DELETE'])
+@app.route('/venues/<id>/delete')
 def delete_venue(id):
+    error = False
     # TODO: Complete this endpoint for taking a venue_id, and using
     # SQLAlchemy ORM to delete a record. Handle cases where the session commit could fail.
 
     # BONUS CHALLENGE: Implement a button to delete a Venue on a Venue Page, have it so that
     # clicking that button delete it from the db then redirect the user to the homepage
-    return None
 
+    venue = Venue.query.get_or_404(id)
+    try:
+        db.session.delete(venue)
+        db.session.commit()
+    except:
+        error = True
+        db.session.rollback()
+        print(sys.exc_info())
+    finally:
+        db.session.close()
+    if error:
+        os.abort()
+    else:
+        flash('Venue ' + venue.name + ' was successfully removed!')
+        return render_template('pages/home.html')
 #  Artists
 #  ----------------------------------------------------------------
 
@@ -352,7 +375,14 @@ def search_artists():
             "num_upcoming_shows": 0,
         }]
     }
-    return render_template('pages/search_artists.html', results=response, search_term=request.form.get('search_term', ''))
+
+    search_term = request.form.get('search_term', '')
+    search = "%{}%".format(search_term)
+    res = {
+        "count": db.session.query(func.count(Artist.id).filter(Artist.name.ilike(search))).scalar(),
+        "data": db.session.query(Artist.name.label('name'), Artist.id.label('id')).filter(Artist.name.ilike(search)).all()
+    }
+    return render_template('pages/search_artists.html', results=res, search_term=search_term)
 
 
 @app.route('/artists/<int:id>')
@@ -654,11 +684,14 @@ def shows():
         "artist_image_link": "https://images.unsplash.com/photo-1558369981-f9ca78462e61?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=794&q=80",
         "start_time": "2035-04-15T20:00:00.000Z"
     }]
-    start_time = Show.start_time
-    artist_id = Show(Artist.id)
-    artist_name = Show(Artist.name)
-    artist_image_link = Show(Artist.image_link)
-    data = db.session.query(Show).filter(Artist.id == artist_id).all()
+    # start_time = Show.start_time
+    # artist_id = Artist.id
+    # artist_name = Artist.name
+    # artist_image_link = Artist.image_link
+    # data = db.session.query(Show).filter(Artist.id == artist_id).all()
+
+    data = db.session.query(Show.start_time.label('start_time'), Artist.name.label('artist_name'), Artist.id.label('artist_id'), Artist.image_link.label(
+        'artist_image_link'), Venue.id.label('venue_id'), Venue.name.label('venue_name')).join(Artist, Artist.id == Show.artist_id).join(Venue, Venue.id == Show.venue_id).all()
 
     return render_template('pages/shows.html', shows=data)
 
