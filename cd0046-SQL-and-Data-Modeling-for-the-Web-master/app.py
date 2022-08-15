@@ -50,7 +50,8 @@ class Venue(db.Model):
     website_link = db.Column(db.String())
     seeking_talent = db.Column(db.Boolean)
     seeking_description = db.Column(db.String())
-    shows = db.relationship('Show', backref='Venue', lazy=True)
+    shows = db.relationship('Show', backref='Venue',
+                            lazy=True, cascade="all,delete")
 
     # TODO: implement any missing fields, as a database migration using Flask-Migrate
 
@@ -69,7 +70,8 @@ class Artist(db.Model):
     website_link = db.Column(db.String())
     seeking_venue = db.Column(db.Boolean)
     seeking_description = db.Column(db.String())
-    shows = db.relationship('Show', backref='artist', lazy=True)
+    shows = db.relationship('Show', backref='artist',
+                            lazy=True, cascade="all,delete")
 
     # TODO: implement any missing fields, as a database migration using Flask-Migrate
 
@@ -117,6 +119,19 @@ def index():
 #  Venues
 #  ----------------------------------------------------------------
 
+def dispatch(datas, cities):
+  areas = []
+  for city in cities:
+    results = []
+    for data in datas:
+      if city == data.city:
+        results.append(data)
+    areas.append({
+      "city":city,
+      "state":results[0].state,
+      "venues": results})
+  return areas
+
 @app.route('/venues')
 def venues():
     # TODO: replace with real venues data.
@@ -142,7 +157,11 @@ def venues():
             "num_upcoming_shows": 0,
         }]
     }]
-    return render_template('pages/venues.html', areas=data)
+    
+    data = Venue.query.all()
+    data1 = db.session.query(Venue.city).distinct().all()
+    cities = [Cities.city for Cities in data1]
+    return render_template('pages/venues.html', areas=dispatch(data, cities))
 
 
 @app.route('/venues/search', methods=['POST'])
