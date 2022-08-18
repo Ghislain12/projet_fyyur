@@ -2,8 +2,7 @@
 # Imports
 #----------------------------------------------------------------------------#
 from flask_migrate import Migrate
-from models import db,app,Artist, Venue, Show
-migrate = Migrate(app, db)
+from models import *
 
 
 import json
@@ -30,7 +29,7 @@ from dateutil import parser
 app = Flask(__name__)
 moment = Moment(app)
 app.config.from_object('config')
-db = SQLAlchemy(app)
+db.init_app(app)
 migrate = Migrate(app, db)
 
 
